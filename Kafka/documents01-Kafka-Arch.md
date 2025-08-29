@@ -8,7 +8,9 @@
     - [Broker](#broker)
     - [Partition](#partition)
     - [Offset](#offset)
-  - [](#)
+    - [Replica](#replica)
+    - [Leader](#leader)
+    - [Follower](#follower)
 
 ## Kafka架构
 Kafka 架构分为以下几个部分：
@@ -51,4 +53,18 @@ Kafka 架构分为以下几个部分：
 - 例如你想找位于 2049 的位置，只要找到 2048.kafka 的文件即可
 - 当然 the first offset 就是 00000000000.kafka。
 
-## 
+### Replica
+- 副本
+- 同一分区的不同副本保存的是相同的消息
+- 为保证集群中的某个节点发生故障时，该节点上的partition数据不丢失，且kafka能正常工作，kafka提供了副本机制
+- 一个topic的每个分区都有若干个副本，一个Leader和若干Follower
+
+### Leader
+- 每个分区的多个副本中的"主副本"
+- 生产者与消费者只和Leader交互
+
+### Follower
+- 每个分区的多个副本中的"从副本"
+- 负责实时从Leader中同步数据，保持和Leader数据的同步
+- Leader故障时，从Follower中重新选举新的Leader
+
