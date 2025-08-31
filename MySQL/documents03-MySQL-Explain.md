@@ -5,6 +5,30 @@
   - [执行计划的输出格式](#执行计划的输出格式)
   - [执行计划详解](#执行计划详解)
     - [table](#table)
+    - [id](#id)
+  - [性能优化策略](#性能优化策略)
+    - [避免全表扫描](#避免全表扫描)
+      - [优化方法](#优化方法)
+        - [创建合理的索引](#创建合理的索引)
+        - [避免函数包装列](#避免函数包装列)
+        - [合理选择驱动表](#合理选择驱动表)
+        - [使用分区裁剪](#使用分区裁剪)
+    - [消除文件排序](#消除文件排序)
+      - [原因分析](#原因分析)
+      - [优化方法](#优化方法-1)
+        - [为排序字段创建索引](#为排序字段创建索引)
+        - [联合索引覆盖 order by 列](#联合索引覆盖-order-by-列)
+        - [尽量减少排序量](#尽量减少排序量)
+    - [避免临时表](#避免临时表)
+      - [原因分析](#原因分析-1)
+      - [优化方法](#优化方法-2)
+        - [使用索引覆盖](#使用索引覆盖)
+        - [查询重写](#查询重写)
+        - [](#)
+    - [覆盖索引的构建](#覆盖索引的构建)
+      - [原理](#原理)
+      - [示例](#示例)
+      - [优化建议](#优化建议)
 
 ## Explain作用
 Explain是用于分析慢速SQL语句的工具。
@@ -90,5 +114,118 @@ where
 > 实践案例：
 > - 假设 orders 表有 100 万行，users表有 10 万行，如果优化器先扫描 users 表，再 join orders，会导致巨量行扫描。
 > - 使用 explain 可以确认**优化器选择了正确的驱动表**
+### id
+- id 字段用于标识查询中每个 SELECT 的执行顺序和层级。它的值越大，优先级越高
+- 在多表 JOIN 或子查询中，id 可以帮助我们判断哪一步先执行，哪一步后执行
 
+以当前SQL为例：
+```SQL
+explain select * from orders where order_id = 100;
+```
+可能输出如下：
+| id  | select_type | table  | type  | key     | rows | Extra       |
+| --- | ----------- | ------ | ----- | ------- | ---- | ----------- |
+| 1   | SIMPLE      | orders | const | PRIMARY | 1    | Using index |
+
+> 解析：
+> - 只有一条 select，id 为 1
+> - SIMPLE类型表示没有子查询或复杂操作
+
+## 性能优化策略
+- 查询优化的核心技术是**减少扫描行数、提高索引命中率、消除额外操作（临时表、文件排序）**
+- 通过 explain 可以直观的判断性能瓶颈，优化策略包括索引优化、查询重写、分区裁剪等
+
+### 避免全表扫描
+全表扫描（type=ALL）是性能最差的访问方式，尤其是大数据表上影响显著。
+> 原因分析：
+> - 查询条件列没有索引
+> - 查询使用函数或类型转换，导致索引失效
+> - 多表 join 驱动表选择不合理
+
+#### 优化方法
+##### 创建合理的索引
+- 单列索引或联合索引覆盖查询条件
+- 优先保证常用 where 条件列和 join 列被索引覆盖
+```SQL
+create index idx_amount on orders(amount);
+
+explain select * from orders where amount > 500;
+```
+##### 避免函数包装列
+```SQL
+-- 不推荐
+select * from orders where YEAR(order_date) = 2023;
+
+-- 推荐
+select
+  *
+from
+  orders
+where
+  order_date >= '2023-01-01'
+and
+  order_date < '2024-01-01'
+```
+
+##### 合理选择驱动表
+- 小表优先驱动大表
+- 避免全表扫描带动小表
+
+##### 使用分区裁剪
+- 对大表按日期、地区、或业务维度分区
+- 查询只扫描部分分区，降低 rows
+
+```SQL
+create table orders (
+  order_id int primary key,
+  order_date date,
+  amount decimal(10, 2)
+)
+partition by range(year(order_date)) (
+  partition p2022 values less than (2023),
+  partition p2023 values less than (2024)
+);
+```
+
+### 消除文件排序
+文件排序通常出现在 order by 或 group by 需要排序时，未能利用索引。
+#### 原因分析
+- 排序字段没有索引
+- 索引顺序与 order by 列不匹配
+- 联合排序（order by多列）未使用最左前缀索引
+#### 优化方法
+##### 为排序字段创建索引
+```SQL
+create index idx_amount on orders(amount);
+
+explain select * from orders order by amount desc;
+```
+##### 联合索引覆盖 order by 列
+```SQL
+create index idx_user_amount on orders(user_id, amount);
+
+explain select * from orders where user_id = 123 order by amount desc;
+```
+##### 尽量减少排序量
+- 结合 where 条件，减少扫描行数
+- 分页查询时使用索引列作为排序列，避免文件排序
+
+### 避免临时表
+临时表通常出现在 group by、distinct、union或子查询场景
+#### 原因分析
+- 查询字段未被索引覆盖
+- 聚合或者排序导致 MySQL必须建立临时表
+- 派生表或子查询未优化
+#### 优化方法
+##### 使用索引覆盖
+##### 查询重写
+- 子查询改为 join
+- 提前聚合或者筛选
+##### 合理分页
+
+
+### 覆盖索引的构建
+#### 原理
+#### 示例
+#### 优化建议
 
