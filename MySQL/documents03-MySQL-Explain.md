@@ -170,6 +170,8 @@ explain select * from orders where order_id = 100;
 - Extended Explain 可以让优化器显示查询重写之后的执行计划
 - 与普通的Explain不同，它可以通过show warnings查看优化器对查询的重写信息
 - 常用于调试复杂查询、子查询优化、索引未生效等问题
+- MySQL移除了 Extended Explain 功能
+
 #### 使用方式
 ```SQL
 explain extended
@@ -214,6 +216,7 @@ where
 - 理解优化器执行逻辑
   - 比如where子句顺序调整、常量折叠、派生表展开等
   - 对调优复杂查询和索引设计非常有帮助
+
 ##### 示例：索引未生效
 ```SQL
 explain extended select * from orders where year(order_date) = 2023;
