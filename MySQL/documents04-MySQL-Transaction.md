@@ -62,8 +62,8 @@ MySQL innoDB引擎支持一条数据保存多个历史版本。通过undo log实
 #### ReadView
 ReadView是事务在使用MVCC机制进行快照读操作时产生的一致性视图。
 
-- READ COMMITTED 在每一次进行普通SELECT操作前都会生成一个ReadView
-- REPEATABLE READ 只在第一次进行普通SELECT操作前生成一个ReadView，之后的查询操作都重复使用这个ReadView就好了。
+- READ COMMITTED 语句级快照，在每一次进行普通SELECT操作前都会生成一个ReadView。
+- REPEATABLE READ 事务级快照，只在第一次进行普通SELECT操作前生成一个ReadView，之后的查询操作都重复使用这个ReadView就好了。
 
 
 
