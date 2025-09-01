@@ -20,6 +20,7 @@
 - [Consumer和Partition的数量](#consumer和partition的数量)
 - [ISR 与 OSR 转换、ISR 集合中的副本才允许选举为leader](#isr-与-osr-转换isr-集合中的副本才允许选举为leader)
 - [什么是 HW 和 LEO](#什么是-hw-和-leo)
+- [写入Partition的方式](#写入partition的方式)
 
 # Kafka 分区的目的？
 分区对于 Kafka 集群的好处是：实现负载均衡。分区对于消费者来说，可以提高并发度，提高效率。
@@ -134,4 +135,23 @@ Kafka是分布式消息系统，需要处理海量的消息，Kafka的设计是�
 # 什么是 HW 和 LEO
 - HW是High Watermark的缩写，俗称高水位，它标识了一个特定的消息偏移量（offset），消费者只能拉取到这个offset之前的消息。
 
+# 写入Partition的方式
+一个 Topic 有多个 Partition，那么，向一个 Topic 中发送消息的时候，具体是写入哪个 Partition 呢？有3种写入方式。
+
+1. 使用 Partition Key 写入特定 Partition
+- Producer 发送消息的时候，可以指定一个 Partition Key，这样就可以写入特定 Partition 了。
+- Partition Key 可以使用任意值，例如设备ID、User ID。
+- Partition Key 会传递给一个 Hash 函数，由计算结果决定写入哪个 Partition。
+- 所以，有相同 Partition Key 的消息，会被放到相同的 Partition。
+- 例如使用 User ID 作为 Partition Key，那么此 ID 的消息就都在同一个 Partition，这样可以保证此类消息的有序性。
+- 这种方式需要注意 Partition 热点问题。
+- 例如使用 User ID 作为 Partition Key，如果某一个 User 产生的消息特别多，是一个头部活跃用户，那么此用户的消息都进入同一个 Partition 就会产生热点问题，导致某个 Partition 极其繁忙。
+
+2. 由 kafka 决定
+- 如果没有使用 Partition Key，Kafka 就会使用轮询的方式来决定写入哪个 Partition。
+- 这样，消息会均衡的写入各个 Partition。
+- 但这样无法确保消息的有序性。
+
+3. 自定义规则
+- Kafka 支持自定义规则，一个 Producer 可以使用自己的分区指定规则。
 
