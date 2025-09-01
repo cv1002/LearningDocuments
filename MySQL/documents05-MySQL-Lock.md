@@ -11,6 +11,10 @@
       - [查看information\_schema系统库](#查看information_schema系统库)
         - [INNODB\_LOCK\_WAITS](#innodb_lock_waits)
         - [INNODB\_TRX](#innodb_trx)
+  - [记录锁 \& 间隙锁 \& 临键锁](#记录锁--间隙锁--临键锁)
+    - [记录锁（Record Lock）](#记录锁record-lock)
+    - [间隙锁（Gap Lock）](#间隙锁gap-lock)
+    - [临键锁（Next-Key Lock）](#临键锁next-key-lock)
 
 ## 按操作类型划分：读锁 & 写锁
 - 读锁
@@ -155,4 +159,25 @@ select * from INFORMATION_SCHEMA.INNODB_TRX;
 | trx_query             | 事务正在执行的 SQL 语句                                              |
 | trx_operation_state   | 事务当前操作状态                                                     |
 | trx_isolation_level   | 当前事务的隔离级别                                                   |
+
+
+## 记录锁 & 间隙锁 & 临键锁
+
+### 记录锁（Record Lock）
+记录锁也被称为行锁，顾名思义，它是针对数据库中的行记录进行的锁定。
+比如：
+```SQL
+select * from users where user_id=1 for update;
+```
+上面的SQL会在 user_id=1 的行记录上加上记录锁，以阻止其他事务插入，更新，删除这一行。
+
+### 间隙锁（Gap Lock）
+- MySQL中的间隙是指索引中两个索引键之间的空间，间隙锁用于防止范围查询期间的幻读，确保查询结果的一致性和并发安全性。
+- 间隙锁就是对间隙加锁，用于锁定索引范围之间的间隙，以避免其他事务在这个范围内插入新的数据。间隙锁是排它锁，阻止了其他事务在间隙中插入满足条件的值，间隙锁仅在可重复读隔离级别下才有效。
+
+### 临键锁（Next-Key Lock）
+- 临键锁由记录锁和间隙锁组合而成，它在索引范围内的记录上加上记录锁，并在索引范围之间的间隙上加上间隙锁。这样可以避免幻读（Phantom Read）的问题，确保事务的隔离性。
+- 切记：**间隙锁的区间是左开右开的，临键锁的区间是左开右闭的。**
+
+
 
