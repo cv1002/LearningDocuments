@@ -219,8 +219,7 @@ INSERT INTO students (id, name) VALUES (2, 'John');
 
 
 ## 当搜索条件仅涉及到多列唯一索引的一部分列时，可能会产生间隙锁
-
-以下是一个例子：
+> 小知识：多列唯一索引能够保证索引键中值的每个组合都是唯一的。 
 
 假设students表，包含三个列：id、name和age。我们在(name, age)上创建了一个唯一索引。
 
