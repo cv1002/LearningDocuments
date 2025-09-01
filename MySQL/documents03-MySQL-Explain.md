@@ -6,6 +6,20 @@
   - [执行计划详解](#执行计划详解)
     - [table](#table)
     - [id](#id)
+    - [select\_type](#select_type)
+    - [partitions](#partitions)
+    - [type](#type)
+    - [possible\_keys 与 key](#possible_keys-与-key)
+    - [key\_len](#key_len)
+    - [ref](#ref)
+    - [rows](#rows)
+    - [filtered](#filtered)
+    - [Extra](#extra)
+    - [JSON格式执行计划](#json格式执行计划)
+    - [Extended Explain](#extended-explain)
+      - [功能介绍](#功能介绍)
+      - [使用方式](#使用方式)
+        - [示例：索引未生效](#示例索引未生效)
   - [性能优化策略](#性能优化策略)
     - [避免全表扫描](#避免全表扫描)
       - [优化方法](#优化方法)
@@ -24,7 +38,7 @@
       - [优化方法](#优化方法-2)
         - [使用索引覆盖](#使用索引覆盖)
         - [查询重写](#查询重写)
-        - [](#)
+        - [合理分页](#合理分页)
     - [覆盖索引的构建](#覆盖索引的构建)
       - [原理](#原理)
       - [示例](#示例)
@@ -130,6 +144,90 @@ explain select * from orders where order_id = 100;
 > 解析：
 > - 只有一条 select，id 为 1
 > - SIMPLE类型表示没有子查询或复杂操作
+
+### select_type
+
+### partitions
+
+### type
+
+### possible_keys 与 key
+
+### key_len
+
+### ref
+
+### rows
+
+### filtered
+
+### Extra
+
+### JSON格式执行计划
+
+### Extended Explain
+#### 功能介绍
+- Extended Explain 可以让优化器显示查询重写之后的执行计划
+- 与普通的Explain不同，它可以通过show warnings查看优化器对查询的重写信息
+- 常用于调试复杂查询、子查询优化、索引未生效等问题
+#### 使用方式
+```SQL
+explain extended
+select
+  u.name, o.amount
+from
+  users u
+join
+  orders o
+on
+  u.id = o.user_id
+where
+  o.amount > 500;
+```
+执行后：
+```SQL
+show warnings;
+```
+返回类似：
+```SQL
+Note: select_rewritten as
+select u.name, o.amount
+from
+  users as u
+inner join
+  orders as o
+on
+  u.id = o.user_id
+where
+  o.amount > 500;
+```
+解析：
+- select_rewritten 显示优化器对原查询的重写结果
+- 优化器可能将复杂表达式展开、合并子查询、消除冗余列等
+核心作用：
+- 调试索引未使用问题
+  - 通过查看重写后的语句，分析优化器为什么不使用某个索引
+  - 例如函数包装列或隐式类型转换可能导致索引失效
+- 分析子查询优化
+  - extended explain能显示子查询被重写为join或者临时表的情况
+  - 有助于理解优化器执行顺序和成本
+- 理解优化器执行逻辑
+  - 比如where子句顺序调整、常量折叠、派生表展开等
+  - 对调优复杂查询和索引设计非常有帮助
+##### 示例：索引未生效
+```SQL
+explain extended select * from orders where year(order_date) = 2023;
+show warnings;
+```
+可能输出：
+```SQL
+Note: select_rewritten as
+select * from orders where (order_date >= '2023-01-01' and order_date < '2024-01-01')
+```
+解析：
+- 优化器将`year(order_date)`转换为范围条件
+- 原始函数表达式可能导致索引无法直接使用
+- 优化建议：直接使用范围条件避免函数包装、提升索引利用率
 
 ## 性能优化策略
 - 查询优化的核心技术是**减少扫描行数、提高索引命中率、消除额外操作（临时表、文件排序）**
