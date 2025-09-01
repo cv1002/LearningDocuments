@@ -37,12 +37,19 @@ Kafka 架构分为以下几个部分：
 ### ConsumerGroup
 - 这是 kafka 用来实现一个 topic 消息的广播（发给所有的 consumer）和单播（发给任意一个 consumer）的手段
 - 一个 topic 可以有多个 Consumer Group。
+> - 在同一个消费者组内，一个 Partition 只能被一个消费者消费。
+> - 在同一个消费者组内，所有消费者组合起来必定可以消费一个 Topic 下的所有 Partition。
+> - 在同一个消费组内，一个消费者可以消费多个 Partition 的信息。
+> - 在不同消费者组内，同一个分区可以被多个消费者消费。
+> - 每个消费者组一定会完整消费一个 Topic 下的所有 Partition。
+> 同一个group中的消费者对于一个topic中的多个partition，存在一定的分区分配策略。在kafka中，存在三种分区分配策略：Range(默认)、 RoundRobin(轮询)、StickyAssignor(粘性)。
 
 ### Broker
 - 一台 kafka 服务器就是一个 broker
 - 一个集群由多个 broker 组成。一个 broker 可以容纳多个 topic
 
 ### Partition
+- Partition 就是分区
 - 为了实现扩展性，一个非常大的 topic 可以分布到多个 broker上，每个 partition 是一个有序的队列
 - partition 中的每条消息都会被分配一个有序的id（offset）。
 - 将消息发给 consumer，kafka 只保证按一个 partition 中的消息的顺序，不保证一个 topic 的整体（多个 partition 间）的顺序。
