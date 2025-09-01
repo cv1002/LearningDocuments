@@ -4,6 +4,13 @@
   - [按锁的粒度划分：全局锁 \& 表锁 \& 行锁 \& 页锁](#按锁的粒度划分全局锁--表锁--行锁--页锁)
   - [按锁的机制划分：乐观锁 \& 悲观锁](#按锁的机制划分乐观锁--悲观锁)
   - [行锁升级表锁](#行锁升级表锁)
+    - [无索引](#无索引)
+    - [索引失效](#索引失效)
+    - [分析排查](#分析排查)
+      - [查看innodb\_row\_lock内部变量](#查看innodb_row_lock内部变量)
+      - [查看information\_schema系统库](#查看information_schema系统库)
+        - [INNODB\_LOCK\_WAITS](#innodb_lock_waits)
+        - [INNODB\_TRX](#innodb_trx)
 
 ## 按操作类型划分：读锁 & 写锁
 - 读锁
@@ -48,5 +55,104 @@
   - 假设最坏的情况，每次去拿数据的时候都认为别人会修改，所以每次在拿数据的时候都会上锁，这样别人想拿这个数据就会阻塞直到它拿到锁（共享资源每次只给一个线程使用，其它线程阻塞，用完后再把资源转让给其它线程）。
 
 ## 行锁升级表锁
+- 无索引或索引失效情况下，行锁升级表锁。
+- 原因：
+  - InnoDB引擎的3种行锁算法(Record Lock、Gap Lock、Next-key Lock)，都是锁定的索引。
+  - 当触发X锁(写锁)的where条件无索引或索引失效时, 查找的方式就会变成全表扫描，也就是扫描所有的聚集索引记录。
 
+### 无索引
+如下的SQL，该SQL没有使用到索引列，那就降级为行锁了。
+```SQL
+update
+    users
+set
+    user_type = 1
+where
+    country = "阿根廷";
+```
+
+### 索引失效
+索引失效的情况有很多, 我们本文不分析为什么失效, 也不会列举出所有失效的场景, 因为那不是本节的重点（我会考虑单独安排一篇详细讲解）。 这里直接用explain说话：
+- Explain 返回的 key 不是你期望的索引, 而是PRIMARY;
+- Explain 返回的 type 是index或all
+- 如果同时满足上述两个条件，说明索引失效了
+
+几个常见的索引失效场景：
+- 复合索引未遵循最左前缀原则
+- like以%开头
+- MySQL成本计算分析认为全表扫描成本更低时
+如何避免：
+- 禁止where条件使用无索引列进行更新/删除
+- 尽可能使用聚集索引进行更新/删除
+- 确实需要使用非聚集索引 进行更新/删除，需要确认：    
+  - 使用explain检查是否会索引失效
+  - 避免对 索引列 进行类型转换、函数、运算符等会造成升级的情况
+  - 尽可能减少检索条件范围, 范围越大就越可能被MySQL成本计算太高，从而导致索引失效
+- 尽可能控制事务大小，减少锁定时间
+  - 涉及事务加锁的sql语句尽可能放在事务最后执行
+- 推荐使用读已提交(RC)事务隔离级别
+  - **这条非常重要**
+  - 对于读已提交(RC)事务隔离级别，由于没有间隙锁(Gap Lock)，所以它的加锁规则相当简单，都是针对匹配索引记录加Record Lock，因为不用解决不可重复读和幻读问题，所以也就不存在锁表了。     
+  - 对于可重复读(RR)事务隔离级别，因为引入了间隙锁(Gap Lock)，所以情况变的复杂, 而在RC下, 情况变的简单.
+
+### 分析排查
+#### 查看innodb_row_lock内部变量
+通过如下SQL，查询MySQL内部变量：
+```SQL
+show status like 'innodb_row_lock%';
+```
+结果字段说明：
+| 字段                          | 说明                                       |
+| ----------------------------- | ------------------------------------------ |
+| Innodb_row_lock_current_waits | 当前正在等待锁定的数量                     |
+| Innodb_row_lock_current_waits | 当前正在等待锁定的数量                     |
+| Innodb_row_lock_time          | 等待总时长:从系统启动到现在锁定总时间长度  |
+| Innodb_row_lock_time_avg      | 等待平均时长: 每次等待所花平均时间         |
+| Innodb_row_lock_time_max      | 从系统启动到现在等待最长的一次所花时间     |
+| Innodb_row_lock_waits         | 等待总次数: 系统启动后到现在总共等待的次数 |
+
+#### 查看information_schema系统库
+我们可以通过 INFORMATION_SCHEMA系统库提供的查看事务、锁、锁等待的数据表来分析
+```SQL
+-- 查看事务
+select * from INFORMATION_SCHEMA.INNODB_TRX;
+-- 查看锁
+select * from INFORMATION_SCHEMA.INNODB_LOCKS;
+-- 查看锁等待
+select * from INFORMATION_SCHEMA.INNODB_LOCK_WAITS;
+-- 查看连接情况
+select * from INFORMATION_SCHEMA.PROCESSLIST;
+```
+
+##### INNODB_LOCK_WAITS
+通过 INNODB_LOCK_WAITS 可以找出阻塞的事务id和锁id
+```SQL
+select * from INFORMATION_SCHEMA.INNODB_LOCK_WAITS;
+```
+结果字段说明：
+| 字段              | 说明         |
+| ----------------- | ------------ |
+| requesting_trx_id | 请求的事务id |
+| requested_lock_id | 请求的锁id   |
+| blocking_trx_id   | 阻塞的事务id |
+| blocking_lock_id  | 阻塞的锁id   |
+
+##### INNODB_TRX
+通过 INNODB_TRX 可以查看事务的状态、阻塞开始时间、阻塞的sql、线程id等等
+```SQL
+select * from INFORMATION_SCHEMA.INNODB_TRX;
+```
+结果字段说明：
+| 字段                  | 说明                                                                 |
+| --------------------- | -------------------------------------------------------------------- |
+| trx_id                | 事务id                                                               |
+| trx_state             | 事务状态，LOCK WAIT代表发生了锁等待                                  |
+| trx_started           | 事务开始时间                                                         |
+| trx_requested_lock_id | 请求锁id, 事务当前正在等待锁的标识，可以join关联INNODB_LOCKS.lock_id |
+| trx_wait_started      | 事务开始锁等待的时间                                                 |
+| trx_weight            | 事务的权重                                                           |
+| trx_mysql_thread_id   | 事务线程 ID，可以join关联PROCESSLIST.ID                              |
+| trx_query             | 事务正在执行的 SQL 语句                                              |
+| trx_operation_state   | 事务当前操作状态                                                     |
+| trx_isolation_level   | 当前事务的隔离级别                                                   |
 
