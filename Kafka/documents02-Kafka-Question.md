@@ -17,6 +17,7 @@
 - [Kafka 缺点？](#kafka-缺点)
 - [Kafka 新旧消费者的区别](#kafka-新旧消费者的区别)
 - [Kafka 分区数可以增加或减少吗？为什么？](#kafka-分区数可以增加或减少吗为什么)
+- [Consumer和Partition的数量](#consumer和partition的数量)
 
 # Kafka 分区的目的？
 分区对于 Kafka 集群的好处是：实现负载均衡。分区对于消费者来说，可以提高并发度，提高效率。
@@ -115,3 +116,8 @@ Kafka是分布式消息系统，需要处理海量的消息，Kafka的设计是�
 - 我们可以使用 bin/kafka-topics.sh 命令对 Kafka 增加 Kafka 的分区数据，但是 Kafka 不支持减少分区数。
 - Kafka 分区数据不支持减少是由很多原因的，比如减少的分区其数据放到哪里去？是删除，还是保留？删除的话，那么这些没消费的消息不就丢了。如果保留这些消息如何放到其他分区里面？追加到其他分区后面的话那么就破坏了 Kafka 单个分区的有序性。如果要保证删除分区数据插入到其他分区保证有序性，那么实现起来逻辑就会非常复杂。
 
+# Consumer和Partition的数量
+1. 如果consumer比partition多，会存在浪费，因为一个partition不允许并发处理，所以consumer数量不建议大于partition数量。
+2. 如果consumer比partition少，一个consumer会对应多个partitions，这里要合理分配consumer数和partition数，否则会导致partition里面的数据被取的不均匀。最好partition数是consumer数的整数倍。所以partition数很重要。
+3. 如果consumer从多个partition中读到数据，不保证数据间的顺序，kafka只保证一个partition上有序，多个partition的顺序则不一定。
+4. 增减consumer、broker、partition会导致rebalance，所以rebalance之后consumer对应额的partition会变化
