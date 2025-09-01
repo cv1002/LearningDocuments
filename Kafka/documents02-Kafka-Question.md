@@ -18,6 +18,8 @@
 - [Kafka 新旧消费者的区别](#kafka-新旧消费者的区别)
 - [Kafka 分区数可以增加或减少吗？为什么？](#kafka-分区数可以增加或减少吗为什么)
 - [Consumer和Partition的数量](#consumer和partition的数量)
+- [ISR 与 OSR 转换、ISR 集合中的副本才允许选举为leader](#isr-与-osr-转换isr-集合中的副本才允许选举为leader)
+- [什么是 HW 和 LEO](#什么是-hw-和-leo)
 
 # Kafka 分区的目的？
 分区对于 Kafka 集群的好处是：实现负载均衡。分区对于消费者来说，可以提高并发度，提高效率。
@@ -45,10 +47,12 @@ Thread-Per-Consumer Model，这种多线程模型是利用Kafka的topic分多个
 - 当然，引入了 High Water Mark 机制，会导致 Broker 间的消息复制因为某些原因变慢，那么消息到达消费者的时间也会随之变长（因为我们会先等待消息复制完毕）。延迟时间可以通过参数 replica.lag.time.max.ms 参数配置，它指定了副本在复制消息时可被允许的最大延迟时间。
 
 # ISR、OSR、AR 是什么？
-- ISR：In-Sync Replicas 副本同步队列
-- OSR：Out-of-Sync Replicas
-- AR：Assigned Replicas 所有副本
-ISR是由leader维护，follower从leader同步数据有一些延迟（具体可以参见 图文了解 Kafka 的副本复制机制），超过相应的阈值会把 follower 剔除出 ISR, 存入OSR（Out-of-Sync Replicas ）列表，新加入的follower也会先存放在OSR中。AR=ISR+OSR。
+- ISR：In-Sync Replicas，所有与leader副本保持一定程度同步的副本（包括leader副本在内）组成ISR（In-Sync Replicas）
+- OSR：Out-of-Sync Replicas，与leader副本同步滞后过多的副本（不包括leader副本）组成OSR（Out-of-Sync Replicas）
+- AR：Assigned Replicas 所有副本，AR = ISR + OSR
+  - 消息会先发送到leader副本，然后follower副本才能从leader副本中拉取消息进行同步，同步期间内follower副本相对于leader副本而言会有一定程度的滞后。
+  - 前面所说的"一定程度的同步"是指可忍受的滞后范围，这个范围可以通过参数进行配置。
+  - 在正常情况下，所有的 follower 副本都应该与 leader 副本保持一定程度的同步，即 AR=ISR，OSR集合为空。
 
 # LEO、HW、LSO、LW等分别代表什么
 - LEO：是 LogEndOffset 的简称，代表当前日志文件中下一条
@@ -94,11 +98,11 @@ ISR是由leader维护，follower从leader同步数据有一些延迟（具体可
 # Kafka 是如何实现高吞吐率的？
 Kafka是分布式消息系统，需要处理海量的消息，Kafka的设计是把所有的消息都写入速度低容量大的硬盘，以此来换取更强的存储能力，但实际上，使用硬盘并没有带来过多的性能损失。kafka主要使用了以下几个方式实现了超高的吞吐率：
 
-- 顺序读写；
+- 顺序读写
 - 零拷贝
 - 文件分段
 - 批量发送
-- 数据压缩。
+- 数据压缩
 
 # Kafka 缺点？
 - 由于是批量发送，数据并非真正的实时；
@@ -121,3 +125,13 @@ Kafka是分布式消息系统，需要处理海量的消息，Kafka的设计是�
 2. 如果consumer比partition少，一个consumer会对应多个partitions，这里要合理分配consumer数和partition数，否则会导致partition里面的数据被取的不均匀。最好partition数是consumer数的整数倍。所以partition数很重要。
 3. 如果consumer从多个partition中读到数据，不保证数据间的顺序，kafka只保证一个partition上有序，多个partition的顺序则不一定。
 4. 增减consumer、broker、partition会导致rebalance，所以rebalance之后consumer对应额的partition会变化
+
+# ISR 与 OSR 转换、ISR 集合中的副本才允许选举为leader
+- leader副本负责维护和跟踪ISR集合中所有follower副本的滞后状态，当follower副本落后太多或失效时，leader副本会把它从ISR集合中剔除。
+- 如果OSR集合中有follower副本"追上"了leader副本，那么leader副本会把它从OSR集合转移至ISR集合。
+- 默认情况下，当leader副本发生故障时，只有在ISR集合中的副本才有资格被选举为新的leader，而在OSR集合中的副本则没有任何机会（不过这个原则也可以通过修改相应的参数配置来改变）。
+
+# 什么是 HW 和 LEO
+- HW是High Watermark的缩写，俗称高水位，它标识了一个特定的消息偏移量（offset），消费者只能拉取到这个offset之前的消息。
+
+
