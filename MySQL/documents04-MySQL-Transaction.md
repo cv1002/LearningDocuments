@@ -7,6 +7,7 @@
     - [快照读和当前读的区别](#快照读和当前读的区别)
     - [ReadView机制如何实现MVCC](#readview机制如何实现mvcc)
       - [ReadView](#readview)
+  - [事务ID](#事务id)
 
 ## 什么是Transaction/事务
 事务是一组操作，这一组操作要么全都成功要么全都失败。事务是为了保证数据最终的一致性。
@@ -65,9 +66,10 @@ ReadView是事务在使用MVCC机制进行快照读操作时产生的一致性�
 - READ COMMITTED 语句级快照，在每一次进行普通SELECT操作前都会生成一个ReadView。
 - REPEATABLE READ 事务级快照，只在第一次进行普通SELECT操作前生成一个ReadView，之后的查询操作都重复使用这个ReadView就好了。
 
+## 事务ID
+事务ID并不是开启事务时就产生了，只有执行第一次修改操作或加排他锁操作的语句，事务才会真正启动，才会向MySQL申请真正的事务ID，MySQL内部严格按照事务的启动顺序来分派事务ID。
 
-
-
+查询操作并不算事务的启动。
 
 
 
