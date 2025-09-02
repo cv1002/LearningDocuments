@@ -24,8 +24,8 @@ exists 语法为：
 select *
 from table_a a
 where exists (select 1 from table_b b where b.id = b.id);
-exists 对外表用 loop 逐条查询，每次查询都会查看 exists 的条件语句。
 ```
+- exists 对外表用 loop 逐条查询，每次查询都会查看 exists 的条件语句。
 - 当 exists 里的条件语句能够返回记录行时（无论返回多少记录行，只要能返回），条件就为真，返回当前 loop 到的这条记录。
 - 反之如果 exists 里的条件语句不能返回记录行，则当前 loop 到的这条记录被丢弃。
 - exists 的条件就像一个 bool 条件，当能返回结果集则为 true，不能返回结果集则为 false。
