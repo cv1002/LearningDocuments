@@ -35,6 +35,8 @@
   - [越多的partition意味着需要更多的内存](#越多的partition意味着需要更多的内存)
   - [越多的partition会导致更长时间的恢复期](#越多的partition会导致更长时间的恢复期)
   - [总结](#总结)
+- [Kafka Rebalance 会有什么样的问题？如何降低Rebalance的负面影响？](#kafka-rebalance-会有什么样的问题如何降低rebalance的负面影响)
+- [](#)
 
 # Kafka 分区的目的？
 分区对于 Kafka 集群的好处是：实现负载均衡。分区对于消费者来说，可以提高并发度，提高效率。
@@ -263,3 +265,21 @@ leader同时无法使用，需要依次移走，最长的leader则需要10ms的�
 ## 总结
 通常情况下，越多的partition会带来越高的吞吐量，但是同时也会给broker节点带来相应的性能损耗和潜在风险，虽然这些影响很小，但不可忽略，因此需要根据自身broker节点的实际情况来设置partition的数量以及replica的数量。
 例如我的集群部署在虚拟机里，12核cpu,就可以在kafka/config/sever.properties配置文件中，设置默认分区12，以后每次创建topic都是12个分区。
+
+# Kafka Rebalance 会有什么样的问题？如何降低Rebalance的负面影响？
+
+Rebalance 会有什么样的问题？
+1. 重复消息。Rebalance后，因为Consumer重新分配Partition，Kafka会重新投递消息，这会导致部分消息会被重复消费。
+2. Stop the world。Rebalance期间，Group内的Consumer是停止消费的，因此不合预期的Rebalance会导致Group内的消费停止，这会影响消费效率。
+3. Rebalance Storm。因为Group Coordinator在完成Rebalance时，会等待 max.poll.interval.ms，如果这时某个Consumer在处理poll()的批消息时，超过了这个时间，那么当Rebalance完成后，这个Consumer再次poll()，就又会触发一次Rebalance。那么如果这种超时响应是由于某短时间网络固定的延迟波动，那么就会导致频繁的rejoin，进而频繁的Rebalance，从而产生Rebalance Storm。
+
+如何降低Rebalance的负面影响？
+
+1. 设置合理的参数。设置 session.timeout.ms 给HeartBeat维活一定的兼容性；关注 max.poll.interval.ms 与自身Consumer消费消息的处理时长，及时调整参数或者优化Consumer消费逻辑；
+2. 保证消息幂等，或者合理的消息滤重。Rebalance不可完全避免（正常的服务发布更新时的Consumer上下线，或者偶发的Consumer实例故障而触发Kafka故障转移），需要考虑将重复消息的影响降低；
+3. 考虑 Static Membership。该机制可以通过设置 Consumer的 group.instance.id 来标识Consumer为 static member。而后的Rebalance时，会将原来的Partition分配给原来的Consumer。而且 Static Membership限制了Rebalance的触发情况，会大大降低Rebalance触发的概率
+4. 升级Kafka版本，kafka2.4支持 Incremental Cooperative Rebalance，该Rebalance协议尝试将全局的Rebalance分解为多次小的Rebalance，降低Stop the world的影响。
+
+#
+
+
