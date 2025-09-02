@@ -3,6 +3,7 @@
   - [WAL机制](#wal机制)
   - [binlog \& redolog \& undolog](#binlog--redolog--undolog)
     - [redolog](#redolog)
+    - [binlog](#binlog)
 
 ## WAL机制
 WAL: Write Ahead Log 预写日志，是数据库系统中常见的一种手段，用于保证数据操作的原子性和持久性。
@@ -40,3 +41,7 @@ innodb_flush_log_at_trx_commit：这个参数控制redo log的写入策略，有
 - 设置为2 表示每次事务提交时都只是把redo log写到操作系统的缓存page cache里，这种情况如果数据库宕机时不会丢失数据的，但是操作系统如果宕机了，page cache里的数据还没来得及写入磁盘文件的话就会丢失数据
 
 InnoDB有一个后台线程，每隔 1 秒，就会把 redo log buffer 中的日志，调用操作系统函数 write 写到文件系统的 page cache，然后调用操作系统的 fsync 持久化到磁盘文件。
+
+### binlog
+
+
