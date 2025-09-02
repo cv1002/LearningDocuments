@@ -29,6 +29,13 @@
   - [消费处理时间过长（Long Processing Time）](#消费处理时间过长long-processing-time)
   - [解决方案](#解决方案)
   - [Kafka事务（Exactly-Once Semantics）](#kafka事务exactly-once-semantics)
+  - [合理优化Kafka集群配置](#合理优化kafka集群配置)
+    - [合理配置Partition数量](#合理配置partition数量)
+      - [越多的partition可以提供更高的吞吐量](#越多的partition可以提供更高的吞吐量)
+      - [越多的分区需要打开更多的文件句柄](#越多的分区需要打开更多的文件句柄)
+      - [越多的partition意味着需要更多的内存](#越多的partition意味着需要更多的内存)
+      - [越多的partition会导致更长时间的恢复期](#越多的partition会导致更长时间的恢复期)
+      - [总结](#总结)
 
 # Kafka 分区的目的？
 分区对于 Kafka 集群的好处是：实现负载均衡。分区对于消费者来说，可以提高并发度，提高效率。
@@ -213,3 +220,48 @@ Kafka 数据出现重复消费的主要原因是：消费者处理消息后未�
 
 对于需要最高级别保证的场景，可以使用Kafka 0.11.0版本之后引入的事务功能，实现端到端的"精确一次（Exactly-Once）"语义。这涉及到生产者、消费者和Broker的协同工作，确保在一个事务内，消息的生产、消费和偏移量的提交是原子性的。这虽然提供了最强的保证，但实现起来也相对复杂。
 
+## 合理优化Kafka集群配置
+### 合理配置Partition数量
+Kafka的单个Partition效率非常高，但是Kafka的Partition设计是非常碎片化的，如果Partition文件过多，很容易严重影响Kafka的整体性能。
+
+Partition的数量最好根据业务灵活调整，Partition数量设置的多一些，可以一定程度上增加Topic的吞吐量。但是过多的Partition数量会带来Partition索引的压力。因此需要根据业务情况来调整。
+
+#### 越多的partition可以提供更高的吞吐量
+
+「单个partition是kafka并行操作的最小单元」。每个partition可以独立接收推送的消息以及被consumer消费，相当于topic的一个子通道，partition和topic的关系就像高速公路的车道和高速公路的关系一样，起始点和终点相同，每个车道都可以独立实现运输，不同的是kafka中不存在车辆变道的说法，入口时选择的车道需要从一而终。
+
+kafka的吞吐量显而易见，在资源足够的情况下，partition越多速度越快。
+
+这里提到的资源充足解释一下，假设我现在一个partition的最大传输速度为p，目前kafka集群共有三个broker，每个broker的资源足够支撑三个partition最大速度传输，那我的集群最大传输速度为33p=9p。
+
+假设在不增加资源的情况下将partition增加到18个，每个partition只能以p/2的速度传输数据，因此传输速度上限还是9p，并不能再提升，因此吞吐量的设计需要考虑broker的资源上限。
+
+kafka跟其他集群一样，可以横向扩展，再增加三个相同资源的broker，那传输速度即可达到18p。
+
+#### 越多的分区需要打开更多的文件句柄
+在kafka的broker中，每个分区都会对照着文件系统的一个目录。
+
+> 在kafka的数据日志文件目录中，每个日志数据段都会分配两个文件，一个索引文件和一个数据文件。因此，随着partition的增多，需要的文件句柄数急剧增加，必要时需要调整操作系统允许打开的文件句柄数。
+
+#### 越多的partition意味着需要更多的内存
+
+在新版本的kafka中可以支持批量提交和批量消费，而设置了批量提交和批量消费后，每个partition都会需要一定的内存空间。
+
+假设为100k，当partition为100时，producer端和consumer端都需要10M的内存；当partition为100000时，producer端和consumer端则都需要10G内存。
+无限的partition数量很快就会占据大量的内存，造成性能瓶颈。
+
+#### 越多的partition会导致更长时间的恢复期
+
+「kafka通过多副本复制技术，实现kafka的高可用性和稳定性」。每个partition都会有多个副本存在于多个broker中，其中一个副本为leader，其余的为follower。
+
+「kafka集群其中一个broker出现故障时，在这个broker上的leader会需要在其他broker上重新选择一个副本启动为leader」，这个过程由kafka controller来完成，主要是从Zookeeper读取和修改受影响partition的一些元数据信息。
+
+通常情况下，当一个broker有计划的停机，该broker上的partition leader会在broker停机前有次序的一一移走，假设移走一个需要1ms，10个partition leader则需要10ms，这影响很小，并且在移动其中一个leader的时候，其他九个leader是可用的。因此实际上每个partition leader的不可用时间为1ms。但是在宕机情况下，所有的10个partition
+
+leader同时无法使用，需要依次移走，最长的leader则需要10ms的不可用时间窗口，平均不可用时间窗口为5.5ms，假设有10000个leader在此宕机的broker上，平均的不可用时间窗口则为5.5s。
+
+更极端的情况是，当时的broker是kafka controller所在的节点，那需要等待新的kafka leader节点在投票中产生并启用，之后新启动的kafka leader还需要从zookeeper中读取每一个partition的元数据信息用于初始化数据。在这之前partition leader的迁移一直处于等待状态。
+
+#### 总结
+通常情况下，越多的partition会带来越高的吞吐量，但是同时也会给broker节点带来相应的性能损耗和潜在风险，虽然这些影响很小，但不可忽略，因此需要根据自身broker节点的实际情况来设置partition的数量以及replica的数量。
+例如我的集群部署在虚拟机里，12核cpu,就可以在kafka/config/sever.properties配置文件中，设置默认分区12，以后每次创建topic都是12个分区。
