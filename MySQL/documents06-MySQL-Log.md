@@ -5,6 +5,8 @@
     - [redolog](#redolog)
       - [redolog 日志文件组](#redolog-日志文件组)
     - [binlog](#binlog)
+      - [记录格式](#记录格式)
+      - [写入机制](#写入机制)
 
 ## WAL机制
 WAL: Write Ahead Log 预写日志，是数据库系统中常见的一种手段，用于保证数据操作的原子性和持久性。
@@ -71,5 +73,69 @@ InnoDB有一个后台线程，每隔 1 秒，就会把 redo log buffer 中的日
 > 而日志文件组的文件数则固定为 32，文件大小则为 innodb_redo_log_capacity / 32 。
 
 ### binlog
+
+- redo log 是物理日志，记录内容是"在某个数据页上做了什么修改"，属于 InnoDB 存储引擎。
+- 而 binlog 是逻辑日志，记录内容是语句的原始逻辑，类似于"给 ID=2 这一行的 c 字段加 1"，属于MySQL Server 层。
+- 不管用什么存储引擎，只要发生了表数据更新，都会产生 binlog 日志。
+- 那 binlog 到底是用来干嘛的？
+- 可以说 MySQL 数据库的数据备份、主备、主主、主从都离不开 binlog，需要依靠 binlog 来同步数据，保证数据一致性。
+- binlog 会记录所有涉及更新数据的逻辑操作，并且是顺序写。
+
+![BinLog](assets/doc06/binlog.png)
+
+#### 记录格式
+binlog 日志有三种格式，可以通过binlog_format参数指定。
+- statement
+- row
+- mixed
+
+指定statement，记录的内容是SQL语句原文，比如执行一条`update T set update_time=now() where id=1`，记录的内容如下。
+![BinLogStatement](assets/doc06/binlog-statement.png)
+
+同步数据时，会执行记录的SQL语句，但是有个问题，`update_time=now()`这里会获取当前系统时间，直接执行会导致与原库的数据不一致。
+
+为了解决这种问题，我们需要指定为row，记录的内容不再是简单的SQL语句了，还包含操作的具体数据，记录内容如下。
+![BinLogRow](assets/doc06/binlog-row.png)
+
+row格式记录的内容看不到详细信息，要通过mysqlbinlog工具解析出来。
+
+`update_time=now()`变成了具体的时间`update_time=1627112756247`，条件后面的@1、@2、@3 都是该行数据第 1 个~3 个字段的原始值（假设这张表只有 3 个字段）。
+
+这样就能保证同步数据的一致性，通常情况下都是指定为row，这样可以为数据库的恢复与同步带来更好的可靠性。
+
+但是这种格式，需要更大的容量来记录，比较占用空间，恢复与同步时会更消耗 IO 资源，影响执行速度。
+
+所以就有了一种折中的方案，指定为mixed，记录的内容是前两者的混合。
+
+MySQL 会判断这条SQL语句是否可能引起数据不一致，如果是，就用row格式，否则就用statement格式。
+
+#### 写入机制
+
+binlog 的写入时机也非常简单，事务执行过程中，先把日志写到binlog cache，事务提交的时候，再把binlog cache写到 binlog 文件中。
+
+因为一个事务的 binlog 不能被拆开，无论这个事务多大，也要确保一次性写入，所以系统会给每个线程分配一个块内存作为binlog cache。
+
+我们可以通过binlog_cache_size参数控制单个线程 binlog cache 大小，如果存储内容超过了这个参数，就要暂存到磁盘（Swap）。
+
+binlog 日志刷盘流程如下:
+
+![BinLogFlushDisk](assets/doc06/binlog-flush-disk.png)
+
+- 上图的 write，是指把日志写入到文件系统的 page cache，并没有把数据持久化到磁盘，所以速度比较快
+- 上图的 fsync，才是将数据持久化到磁盘的操作
+
+write和fsync的时机，可以由参数sync_binlog控制，默认是1。
+
+为0的时候，表示每次提交事务都只write，由系统自行判断什么时候执行fsync。虽然性能得到提升，但是机器宕机，page cache里面的 binlog 会丢失。
+
+为了安全起见，可以设置为1，表示每次提交事务都会执行fsync，就如同 redo log 日志刷盘流程 一样。
+
+最后还有一种折中方式，可以设置为N(N>1)，表示每次提交事务都write，但累积N个事务后才fsync。
+
+在出现 IO 瓶颈的场景里，将sync_binlog设置成一个比较大的值，可以提升性能。
+
+同样的，如果机器宕机，会丢失最近N个事务的 binlog 日志。
+
+
 
 
