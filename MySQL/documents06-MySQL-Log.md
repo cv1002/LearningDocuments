@@ -7,6 +7,7 @@
     - [binlog](#binlog)
       - [记录格式](#记录格式)
       - [写入机制](#写入机制)
+    - [undolog](#undolog)
 
 ## WAL机制
 WAL: Write Ahead Log 预写日志，是数据库系统中常见的一种手段，用于保证数据操作的原子性和持久性。
@@ -135,6 +136,8 @@ write和fsync的时机，可以由参数sync_binlog控制，默认是1。
 在出现 IO 瓶颈的场景里，将sync_binlog设置成一个比较大的值，可以提升性能。
 
 同样的，如果机器宕机，会丢失最近N个事务的 binlog 日志。
+
+### undolog
 
 
 
