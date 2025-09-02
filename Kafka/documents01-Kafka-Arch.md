@@ -22,6 +22,8 @@ Kafka 架构分为以下几个部分：
 - Partition
 - Offset
 
+![Kafka架构](assets/doc01/arch.png)
+
 ### Producer
 - 消息生产者
 - 就是向 kafka broker 发消息的客户端。
