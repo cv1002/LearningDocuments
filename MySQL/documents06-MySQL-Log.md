@@ -1,8 +1,9 @@
 # Log
 - [Log](#log)
   - [WAL机制](#wal机制)
-  - [binlog \& redolog \& undolog](#binlog--redolog--undolog)
+  - [redolog \& binlog \& undolog](#redolog--binlog--undolog)
     - [redolog](#redolog)
+      - [redolog 日志文件组](#redolog-日志文件组)
     - [binlog](#binlog)
 
 ## WAL机制
@@ -23,7 +24,7 @@ WAL 的优点
 3. 磁盘 I/O 行为更容易被预测。
 4. 使用更少的 fsync()操作，减少系统脆弱的问题。
 
-## binlog & redolog & undolog
+## redolog & binlog & undolog
 ### redolog
 redo log（重做日志）是 InnoDB 存储引擎独有的，它让 MySQL 拥有了崩溃恢复能力。比如 MySQL 实例挂了或宕机了，重启时，InnoDB 存储引擎会使用 redo log 恢复数据，保证数据的持久性与完整性。
 
@@ -41,6 +42,33 @@ innodb_flush_log_at_trx_commit：这个参数控制redo log的写入策略，有
 - 设置为2 表示每次事务提交时都只是把redo log写到操作系统的缓存page cache里，这种情况如果数据库宕机时不会丢失数据的，但是操作系统如果宕机了，page cache里的数据还没来得及写入磁盘文件的话就会丢失数据
 
 InnoDB有一个后台线程，每隔 1 秒，就会把 redo log buffer 中的日志，调用操作系统函数 write 写到文件系统的 page cache，然后调用操作系统的 fsync 持久化到磁盘文件。
+
+#### redolog 日志文件组
+
+- 硬盘上存储的 redo log 日志文件不只一个，而是以一个日志文件组的形式出现的，每个的redo日志文件大小都是一样的。
+- 比如可以配置为一组4个文件，每个文件的大小是 1GB，整个 redo log 日志文件组可以记录4G的内容。
+- 它采用的是环形数组形式，从头开始写，写到末尾又回到头循环写，如下图所示。
+
+![RedoLogFiles](assets/doc06/redolog-files.png)
+
+- 在这个日志文件组中还有两个重要的属性，分别是 write pos、checkpoint
+  - write pos 是当前记录的位置，一边写一边后移
+  - checkpoint 是当前要擦除的位置，也是往后推移
+- 每次刷盘 redo log 记录到日志文件组中，write pos 位置就会后移更新
+- 每次 MySQL 加载日志文件组恢复数据时，会清空加载过的 redo log 记录，并把 checkpoint 后移更新
+- write pos 和 checkpoint 之间的还空着的部分可以用来写入新的 redo log 记录
+
+![RedoLogWrite](assets/doc06/redolog-write.png)
+
+- 如果 write pos 追上 checkpoint ，表示日志文件组满了，这时候不能再写入新的 redo log 记录，MySQL 得停下来，清空一些记录，把 checkpoint 推进一下
+
+![alt text](assets/doc06/redolog-write-full.png)
+
+> MySQL 8.0.30 之前可以通过 innodb_log_files_in_group 和 innodb_log_file_size 配置日志文件组的文件数和文件大小
+> 
+> 但在 MySQL 8.0.30 及之后的版本中，这两个变量已被废弃，即使被指定也是用来计算 innodb_redo_log_capacity 的值。
+> 
+> 而日志文件组的文件数则固定为 32，文件大小则为 innodb_redo_log_capacity / 32 。
 
 ### binlog
 
