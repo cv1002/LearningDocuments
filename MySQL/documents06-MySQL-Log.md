@@ -10,6 +10,10 @@
     - [undolog](#undolog)
       - [故障恢复](#故障恢复)
       - [MVCC（Multi-Versioin Concurrency Control）](#mvccmulti-versioin-concurrency-control)
+  - [删库跑路如何恢复](#删库跑路如何恢复)
+  - [为什么会有 binlog 和 redolog 两份日志呢](#为什么会有-binlog-和-redolog-两份日志呢)
+  - [错误日志](#错误日志)
+  - [通用查询日志](#通用查询日志)
 
 ## WAL机制
 WAL: Write Ahead Log 预写日志，是数据库系统中常见的一种手段，用于保证数据操作的原子性和持久性。
@@ -153,6 +157,55 @@ undo log 用来记录每次修改之前的历史值，配合 redo log 用于故�
 
 为了避免只读事务与写事务之间的冲突，避免写操作等待读操作，几乎所有的主流数据库都采用了多版本并发控制（MVCC）的方式，也就是为每条记录保存多份历史数据供读事务访问，新的写入只需要添加新的版本即可，无需等待。InnoDB在这里复用了Undo Log中已经记录的历史版本数据来满足MVCC的需求。
 
+## 删库跑路如何恢复
+如果要恢复大量数据，比如程序员经常说的**删库跑路**话题。假设我们把数据库所有数据都删了如何恢复。
 
+如果数据库之前没有备份，但所有的 binlog日志都在的话，可以从 binlog 第一个文件开始逐个恢复每个 binlog 文件里的数据，这种一般不太可能，因为 binlog 日志比较大，早期的 binlog 会定期删除。
 
+所以一般不可能完全用 binlog 恢复整个数据库。
 
+一般我们推荐每天（如在每日凌晨）做一次全量备份。那么恢复数据库时就可以通过最近一次全量备份再加上备份时间之后的 binlog 来恢复数据。
+
+备份脚本示例：
+```shell
+# 备份整库
+mysqldump -u root 数据库名 >备份文件名
+
+# 备份整表
+mysqldump -u root 数据库名 表名 >备份文件名
+
+# 通过备份文件恢复
+# 恢复整库，需要自己先根据数据库名建一个数据库
+mysql -u root 数据库名 <备份文件名
+```
+
+## 为什么会有 binlog 和 redolog 两份日志呢
+因为最开始 MySQL 没有 InnoDB 引擎。MySQL自带的引擎是 MyISAM，但是 MyISAM 没有 Crash-Safe 能力，binlog 日志只能用于归档。
+
+而 InnoDB 是另一个公司以插件形式引入 MySQL 的，既然只依赖 binlog 没有 Crash-Safe 能力，所以 InnoDB 使用了另一套日志系统 —— 也就是 redolog 来实现 Crash-Safe 能力。
+
+有了 redolog，InnoDB就可以保证即使数据库发生异常重启，之前提交的记录都不会丢失，这个能力称为 Crash-Safe。
+
+## 错误日志
+MySQL 还有一个比较重要的日志是错误日志。错误日志记录了数据库启动和停止，以及运行过程中发生任何严重错误时的相关信息。当数据库出现故障导致无法正常使用时，都建议首先查看此日志。
+
+在 MySQL 数据库中，错误日志功能是默认开启的，且无法关闭。
+```SQL
+# 查看错误日志存放位置
+show variables like '%log_error%'
+```
+
+## 通用查询日志
+
+通用查询日志记录用户的所有操作，包括启动和关闭 MySQL 服务、所有用户的连接开启和结束时间、发给 MySQL 数据库服务器的所有 SQL 指令等，如 select、show 等，无论 SQL 的语法正确还是错误，也无论 SQL 执行成功还是失败，MySQL 都会记录起来。
+
+通用查询日志用来还原操作时的具体场景，可以帮助我们准确定位一些疑难问题，比如重复支付等问题。
+
+- general_log 是否开启日志参数，默认 OFF 关闭，因为开启会占用大量资源所以一般不建议开启，只在需要调试问题时开启。
+- general_log_file 通用查询日志记录的位置参数
+```SQL
+show variables like '%general_log%';
+
+# 打开通用查询日志
+SET GLOBAL general_log=on;
+```
