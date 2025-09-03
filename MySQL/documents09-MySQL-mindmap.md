@@ -1,3 +1,4 @@
+# 思维导图
 ```plantuml
 @startmindmap
 * MySQL数据库
@@ -223,3 +224,12 @@
 **** innodb状态变量
 @endmindmap
 ```
+
+# 🎯 核心知识点
+
+- **架构设计**: Server层与存储引擎层的分离设计
+- **索引优化**: B+树结构、聚簇索引、联合索引的最左前缀原则
+- **事务ACID**: 通过redo log、undo log、锁机制、MVCC实现
+- **锁机制**: 从全局锁到行锁，记录锁、间隙锁、临键锁的应用
+- **日志系统**: WAL机制下的redo log、binlog、undo log协同工作
+- **性能调优**: 通过Explain分析执行计划，避免全表扫描和文件排序
