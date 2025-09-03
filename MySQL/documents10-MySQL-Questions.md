@@ -26,7 +26,8 @@ MyISAM 和 InnoDB 的区别有哪些：
 - MyISAM 采用表级锁(table-level locking)；InnoDB 支持行级锁(row-level locking)和表级锁,默认为行级锁。
 
 # 说一下 MySQL 主从复制原理？
-[Reference](https://www.cnblogs.com/vipstone/p/17934625.html)
+- [Reference1](https://www.cnblogs.com/vipstone/p/17934625.html)
+- [Reference2](https://learn.lianglianglee.com/%E6%96%87%E7%AB%A0/MySQL%20%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6.md)
 
 ## 主从复制优点
 主从复制的主要优点有以下几个：
