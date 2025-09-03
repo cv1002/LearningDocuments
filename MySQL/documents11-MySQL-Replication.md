@@ -7,7 +7,7 @@
   - [设计理念: 复制状态机——几乎所有的分布式存储都是如此复制数据的](#设计理念-复制状态机几乎所有的分布式存储都是如此复制数据的)
   - [GTID \& Group Replication](#gtid--group-replication)
     - [GTID](#gtid)
-    - [Group Replication（简称MGR）](#group-replication简称mgr)
+    - [组复制 MySQL Group Replication（简称MGR）](#组复制-mysql-group-replication简称mgr)
       - [组复制特点](#组复制特点)
       - [组复制与传统复制的区别和大幅改进](#组复制与传统复制的区别和大幅改进)
       - [组复制优点小结](#组复制优点小结)
@@ -69,7 +69,7 @@ GTID = server_uuid:transaction_id
 
 GTID实际上由UUID+TID构成。其中UUID是一个MySQL实例的唯一标识。TID代表了该实例上已经提交的事务数量，并且随着事务提交单调递增。
 
-### Group Replication（简称MGR）
+### 组复制 MySQL Group Replication（简称MGR）
 
 [Reference](https://www.cnblogs.com/kevingrace/p/10260685.html)
 
