@@ -42,7 +42,7 @@ int epoll_wait(int epfd, struct epoll_event * events, int maxevents, int timeout
 select、poll 模型都只使用一个函数，而 epoll 模型使用三个函数: 
 - epoll_create
 - epoll_ctl
-- epoll_wait。
+- epoll_wait
 
 epoll_create 创建 eventpoll对象（红黑树，双链表）
 - 一棵红黑树，存储监听的所有文件描述符，并且通过 epoll_ctl 将文件描述符添加、删除到红黑树
