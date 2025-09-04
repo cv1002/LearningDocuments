@@ -36,7 +36,7 @@
   - [越多的partition会导致更长时间的恢复期](#越多的partition会导致更长时间的恢复期)
   - [总结](#总结)
 - [Kafka Rebalance 会有什么样的问题？如何降低Rebalance的负面影响？](#kafka-rebalance-会有什么样的问题如何降低rebalance的负面影响)
-- [](#)
+- [Kafka 有哪些常见的参数？](#kafka-有哪些常见的参数)
 
 # Kafka 分区的目的？
 分区对于 Kafka 集群的好处是: 实现负载均衡。分区对于消费者来说，可以提高并发度，提高效率。
@@ -280,6 +280,16 @@ Rebalance 会有什么样的问题？
 3. 考虑 Static Membership。该机制可以通过设置 Consumer的 group.instance.id 来标识Consumer为 static member。而后的Rebalance时，会将原来的Partition分配给原来的Consumer。而且 Static Membership限制了Rebalance的触发情况，会大大降低Rebalance触发的概率
 4. 升级Kafka版本，kafka2.4支持 Incremental Cooperative Rebalance，该Rebalance协议尝试将全局的Rebalance分解为多次小的Rebalance，降低Stop the world的影响。
 
-#
+# Kafka 有哪些常见的参数？
+- `broker.id`: 单机时无需修改，集群时需要修改。要求必须是正数。服务器的IP地址发生变化但`broker.id`不变时，不影响服务
+- `retries`: 生产者的重试次数。启用幂等性该配置必须大于 0
+- `zookeeper.connect`: zookeeper 集群的地址，可以写多个，多个用逗号分隔。格式 hostname:port/path,hostname:port/path，/path是ZK的路径，可选，不写默认用根路径。
+- `max.poll.interval.ms`: poll 超时时间，如果超过了这个时间没有 poll，则认为该消费者失效，发生 rebalance
+- `acks`: 指定了必须要有多少个分区副本收到消息，生产者才会认为写入消息是成功的，这个参数对消息丢失的可能性有重大影响。
+- `batch.size`: 一个批次可以使用的内存大小，按照字节数计算。当批次内存被填满后，批次里的所有消息会被发送出去。生产者不一定都会等到批次被填满才发送，半满甚至只包含一个消息的批次也有可能被发送。默认16384(16k) ，如果一条消息超过了批次的大小，会写不进去。
+- `linger.ms`: 指定了生产者在发送批次前等待更多消息加入批次的时间。它和batch.size以先到者为先。
+- `max.request.size`: 控制生产者发送请求最大大小。默认这个值为1M，如果一个请求里只有一个消息，那这个消息不能大于1M，如果一次请求是一个批次，该批次总大小不能大于1M。
+- `request.timeout.ms`: 客户端将等待请求的响应的最大时间,如果在这个时间内没有收到响应，客户端将重发请求;超过重试次数将抛异常，默认30秒。
+- `auto.create.topics.enable`: 自动创建主题。true则生产者或者消费者写或读不存在的主题时自动创建这个主题，默认true，false则不会。
 
 
