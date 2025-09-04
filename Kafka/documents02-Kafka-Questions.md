@@ -269,7 +269,7 @@ leader同时无法使用，需要依次移走，最长的leader则需要10ms的�
 # Kafka Rebalance 会有什么样的问题？如何降低Rebalance的负面影响？
 
 Rebalance 会有什么样的问题？
-1. 重复消息。Rebalance后，因为Consumer重新分配Partition，Kafka会重新投递消息，这会导致部分消息会被重复消费。
+1. 重复消息。Rebalance后，Consumer重新分配Partition，这种情况下提交offset会失败，导致Kafka会重新投递消息，这会导致部分消息会被重复消费。
 2. Stop the world。Rebalance期间，Group内的Consumer是停止消费的，因此不合预期的Rebalance会导致Group内的消费停止，这会影响消费效率。
 3. Rebalance Storm。因为Group Coordinator在完成Rebalance时，会等待 max.poll.interval.ms，如果这时某个Consumer在处理poll()的批消息时，超过了这个时间，那么当Rebalance完成后，这个Consumer再次poll()，就又会触发一次Rebalance。那么如果这种超时响应是由于某短时间网络固定的延迟波动，那么就会导致频繁的rejoin，进而频繁的Rebalance，从而产生Rebalance Storm。
 
