@@ -107,9 +107,17 @@ jstack -l pid
 jstack 分析CPU过高步骤
 1. top
 2. top -Hp pid
+  - 这一步是为了找出对应占用CPU的线程
+  - top -Hp 21340 可以查看21340进程下，各个线程的cpu使用情况
+  - 并且可以看到线程的 PID
 3. jstack pid
+  - 这一步查看进程的堆栈情况
 4. jstack -l [PID] >/tmp/log.txt
+  - 堆栈太复杂的情况可以导出堆栈信息到文件中细细分析
 5. 分析堆栈信息
+  - 注意JStack给的线程PID是十六进制
+  - 而Top给的PID是十进制
+  - 记得转换进制
 
 ![JStack-CPU-Usage](assets/jstack-cpu-usage.png)
 

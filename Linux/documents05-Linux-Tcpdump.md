@@ -70,9 +70,6 @@ tcpdump -r mycapture.pcap port 80
 tcpdump -r mycapture.pcap 'src host 192.168.1.100 and dst port 443'
 ```
 
-
-
-
 ## 过滤器
 关于 tcpdump 的过滤器，这里有必要单独介绍一下。
 
