@@ -6,6 +6,8 @@
   - [使用方式](#使用方式)
     - [jstack 命令格式如下](#jstack-命令格式如下)
     - [最常用的是](#最常用的是)
+  - [Example 1 分析死锁](#example-1-分析死锁)
+  - [Example 2 分析 CPU 过高](#example-2-分析-cpu-过高)
 
 ## 介绍
 jstack是java虚拟机自带的一种堆栈跟踪工具。jstack用于打印出给定的java进程ID或core file或远程调试服务的Java堆栈信息，如果是在64位机器上，需要指定选项"-J-d64"。
@@ -88,4 +90,27 @@ Option参数:
 | -m   | 如果调用到本地方法的话，可以显示C/C++的堆栈                                     |
 | -l   | 除堆栈外，显示关于锁的附加信息，在发生死锁时可以用jstack -l pid来观察锁持有情况 |
 
+## Example 1 分析死锁
 
+```shell
+jstack -l pid
+```
+输出: 
+![JStack-DeadLock](assets/jstack-deadlock.png)
+
+由上图，可以清晰看到死锁信息：
+- mythread-tianluo 等待这个锁 `0x00000000d61ae3a0`，这个锁是由于`mythread-jay`线程持有。
+- mythread-jay线程等待这个锁`0x00000000d61ae3d0`,这个锁是由`mythread-tianluo`线程持有。
+
+## Example 2 分析 CPU 过高
+
+jstack 分析CPU过高步骤
+1. top
+2. top -Hp pid
+3. jstack pid
+4. jstack -l [PID] >/tmp/log.txt
+5. 分析堆栈信息
+
+![JStack-CPU-Usage](assets/jstack-cpu-usage.png)
+
+发现 0x5366 号线程一直在跑，分析对应函数发现死循环，CPU过高。
