@@ -44,7 +44,7 @@ Kafka 架构分为以下几个部分:
 > - 在同一个消费组内，一个消费者可以消费多个 Partition 的信息。
 > - 在不同消费者组内，同一个分区可以被多个消费者消费。
 > - 每个消费者组一定会完整消费一个 Topic 下的所有 Partition。
-> 同一个group中的消费者对于一个topic中的多个partition，存在一定的分区分配策略。在kafka中，存在三种分区分配策略: Range(默认)、 RoundRobin(轮询)、StickyAssignor(粘性)。
+> - 同一个group中的消费者对于一个topic中的多个partition，存在一定的分区分配策略。在kafka中，存在三种分区分配策略: Range(默认)、 RoundRobin(轮询)、StickyAssignor(粘性)。
 
 ### Broker
 - 一台 kafka 服务器就是一个 broker
