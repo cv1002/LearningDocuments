@@ -6,6 +6,8 @@
     - [每次 Young GC 后有多少对象存活和进入老年代](#每次-young-gc-后有多少对象存活和进入老年代)
     - [Full GC 触发频率和每次耗时](#full-gc-触发频率和每次耗时)
     - [优化思路](#优化思路)
+    - [如果 Full GC 比 Minor GC 还多](#如果-full-gc-比-minor-gc-还多)
+      - [老年代空间分配担保机制](#老年代空间分配担保机制)
 
 ## JVM 运行情况预估
 用 `jstat -gc pid` 可以计算出一些关键数据，有了这些数据就可以采用之前介绍过的优化思路，先给自己的系统设计一些初始 JVM 参数，比如堆内存大小，年轻代大小， Eden 和 Survivor 的比例，老年代的大小，大对象的阈值，大龄对象进入老年代的阈值等。
@@ -27,4 +29,19 @@
 ### 优化思路
 其实简单来说就是尽量让每次 Young GC 后的存活对象小于Survivor区域的50%，都留存在年轻代里。
 
-尽量不要让对象进入老年代。尽量减少 FullGC 的频率，避免频繁 Full GC对JVM性能的影响。
+尽量不要让对象进入老年代。尽量减少 Full GC 的频率，避免频繁 Full GC 对JVM性能的影响。
+
+### 如果 Full GC 比 Minor GC 还多
+1. 元空间不够导致的多余 GC
+2. 显式调用 `System.gc()` 造成的多余 Full GC ，这种线上
+3. 老年代空间分配担保机制
+
+#### 老年代空间分配担保机制
+- 在发生 Minor GC 之前，jvm会首先检查老年代的可用连续空间是否大于新生代年龄总大小，如果成立，则进行 Minor，并且这个 Minor GC 是安全的，不会触发 Full GC 。
+- 反之，如果不成立，则会检查jvm是否配置-XX:-HandlePromotionFailure，如果配置了老年代空间分配担保机制，那么就会进行老年代空间分配担保机制的判断。
+- 通过计算历史 Minor GC 后进入老年代对象的平均总大小，如果这个值不大于老年代连续可用空间的总大小，那么就冒险进行 Minor GC
+- 如果 jvm设置了-XX:HandlePromotionFailure（不允许冒险）或者大于可用空间大小，则还是会做 Full GC
+
+![HandlePromotionFailure](assets/promotion-failure.png)
+
+
