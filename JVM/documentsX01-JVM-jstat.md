@@ -15,6 +15,7 @@
       - [-gcoldcapacity](#-gcoldcapacity)
       - [-gcmetacapacity](#-gcmetacapacity)
       - [-printcompilation](#-printcompilation)
+  - [常用](#常用)
 
 ## 介绍
 jstat（Java Virtual Machine Statistics Monitoring Tool）是JDK提供的一个可以监控Java虚拟机各种运行状态信息的命令行工具。它可以显示Java虚拟机中的类加载、内存、垃圾收集、即时编译等运行状态的信息。
@@ -196,9 +197,37 @@ jstat outputOptions [-t] [-h<lines>] <vmid> [<interval> [<count>]]
 - GCT: GC的所用的总时间。
 
 #### -printcompilation
-Compiled: 最近编译方法执行的编译任务的数量。
-Size: 最近编译方法的字节码的字节数。
-Type: 最近编译方法的编译类型。
-Method: 最近编译方法的类名和方法名。
+- Compiled: 最近编译方法执行的编译任务的数量。
+- Size: 最近编译方法的字节码的字节数。
+- Type: 最近编译方法的编译类型。
+- Method: 最近编译方法的类名和方法名。
 
+## 常用
+
+`jstat -gc pid` **最常用**，可以评估程序内存使用及GC压力整体情况。
+
+每一列的意思:
+- S0C: 年轻代中第一个Survivor区的容量，单位为KB。
+- S1C: 年轻代中第二个Survivor区的容量，单位为KB。
+- S0U: 年轻代中第一个Survivor区已使用大小，单位为KB。
+- S1U: 年轻代中第二个Survivor区已使用大小，单位为KB。
+- EC: 年轻代中Eden区的容量，单位为KB。
+- EU: 年轻代中Eden区已使用大小，单位为KB。
+- OC: 老年代的容量，单位为KB。
+- OU: 老年代已使用大小，单位为KB。
+- MC: 元空间的容量，单位为KB。
+- MU: 元空间已使用大小，单位为KB。
+- CCSC: 压缩类的容量，单位为KB。
+- CCSU: 压缩类已使用大小，单位为KB。
+- YGC: Young GC的次数。
+- YGCT: Young GC所用的时间。
+- FGC: Full GC的次数。
+- FGCT: Full GC的所用的时间。
+- GCT: GC的所用的总时间。
+
+Example:
+```shell
+jstat -gc 21968
+```
+![JstatGcInfoExample](assets/jstat-example.png)
 
