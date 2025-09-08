@@ -8,6 +8,9 @@
     - [优化思路](#优化思路)
     - [如果 Full GC 比 Minor GC 还多](#如果-full-gc-比-minor-gc-还多)
       - [老年代空间分配担保机制](#老年代空间分配担保机制)
+  - [ZGC 触发机制](#zgc-触发机制)
+  - [如何选择垃圾回收器](#如何选择垃圾回收器)
+  - [GC 日志详解](#gc-日志详解)
 
 ## JVM 运行情况预估
 用 `jstat -gc pid` 可以计算出一些关键数据，有了这些数据就可以采用之前介绍过的优化思路，先给自己的系统设计一些初始 JVM 参数，比如堆内存大小，年轻代大小， Eden 和 Survivor 的比例，老年代的大小，大对象的阈值，大龄对象进入老年代的阈值等。
@@ -44,4 +47,40 @@
 
 ![HandlePromotionFailure](assets/promotion-failure.png)
 
+## ZGC 触发机制
+ZGC 目前有四种机制触发 GC:
+- 定时触发，默认不可用，可以通过`ZCollectionInterval`参数配置
+- 预热触发，最多三次，在堆内存达到 10%, 20%, 30% 时触发，主要统计 GC 时间，为其他 GC 机制使用
+- 分配速率，基于正态分布统计，计算内存 99.9% 可能的最大分配速率，以及此速率下的内存将要耗尽的时间点，在耗尽之前触发 GC
+  - 耗尽时间 - 一次GC最大持续时间 - 一次GC监测时间
+- 主动触发，默认开启，可以通过`ZProactive`参数配置，距上次GC堆内存增长 10%，或超过 5分钟 时，对比距上次GC的间隔时间跟 49*一次GC的最大持续时间，超过则触发
+
+## 如何选择垃圾回收器
+1. 有限调整堆的大小，让服务器自己选择
+2. 如果内存小于 100M ，使用串行收集器
+3. 如果单核并且没有STW时间要求，使用串行或者JVM自己选择
+4. 如果允许停顿时间超过1s，选择并行或JVM自己选择
+5. 如果响应时间最重要，并且不能超过1s，使用并发收集器
+6. 4G以下可以用Parallel
+7. 4-8G可以使用ParNew+CMS
+8. 8G以上可以使用G1
+9. 几百G以上可以使用ZGC
+
+## GC 日志详解
+GC日志相关的 JVM 参数，按需使用: 
+```shell
+-Xloggc: ./gc-%t.log       # GC日志打印到哪 %t 表示时间
+-XX:+PrintGCDetails        # 打印 GC 过程的细节
+-XX:+PrintGCDateStamps     # 输出 GC 的日期时间
+-XX:+PrintGCTimeStamps     # 输出 GC 的时间戳
+-XX:+PrintGCCause          # 打印GC原因
+-XX:+UseGCLogFileRotation             # GC文件是否轮转
+-XX:NumberOfGCLogFiles=10             # GC日志文件数量
+-XX:GCLogFileSize=100M                # GC日志文件大小
+-XX:+PrintGCApplicationStoppedTime    # 打印 stop world 的时间
+-XX:+PrintGCApplicationConcurrentTime # 打印程序未中断运行的时间
+-XX:+PrintHeapAtGC                    # 打印 GC 前后的堆栈信息
+-XX:+PrintTenuringDistribution        # 打印每次 minor GC 后新的存活周期的阈值
+```
+Tomcat则直接加在 JAVA_OPTS 变量里
 
