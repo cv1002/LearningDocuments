@@ -24,6 +24,7 @@
 | **I (隔离性)** | **锁机制 + MVCC**    | 行锁、间隙锁、Next-Key Lock、Read View |
 | **D (持久性)** | **Redo Log + WAL**   | 重做日志，记录数据物理修改             |
 
+**注意: 当前事务更新的数据对当前事务可见**
 
 ## MVCC机制
 - RU Read Uncommitted 读未提交
