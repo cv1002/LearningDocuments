@@ -2,6 +2,7 @@
 - [Crash](#crash)
   - [Reference](#reference)
   - [Crash 工具](#crash-工具)
+  - [介绍](#介绍)
   - [常用命令](#常用命令)
     - [bt 命令](#bt-命令)
     - [log 命令](#log-命令)
@@ -32,6 +33,19 @@ crash是redhat的工程师开发的，主要用来离线分析linux内核转存�
 crash主要用于分析内核崩溃文件。
 
 crash支持多种工具生成的转存文件格式，如kdump，LKCD，netdump和diskdump，而且还可以分析虚拟机Xen和Kvm上生成的内核转存文件。同时crash还可以调试运行时系统，直接运行crash即可，ubuntu下内核映象存放在/proc/kcore。
+
+## 介绍
+当系统崩溃时，通过 kdump 可以获得当时的内存转储文件 vmcore ，但是该如何分析 vmcore 呢？
+
+crash 是一个用于分析内核转储文件的工具，一般和 kdump 搭配使用。
+
+使用 crash 时，要求调试内核vmlinux在编译时带有 -g 选项，即带有调试信息。
+
+如果没有指定 vmcore ，则默认使用实时系统的内存来分析。
+
+值得一提的是，crash 也可以用来分析实时的系统内存，是一个很强大的调试工具。
+
+crash 使用 gdb 作为内部引擎，语法类似于 gdb ，命令的使用说明可以用 help 来查看。
 
 ## 常用命令
 
