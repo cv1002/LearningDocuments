@@ -120,5 +120,3 @@ jstack 分析CPU过高步骤
   - 记得转换进制
 
 ![JStack-CPU-Usage](assets/jstack-cpu-usage.png)
-
-发现 0x5366 号线程一直在跑，分析对应函数发现死循环，CPU过高。
