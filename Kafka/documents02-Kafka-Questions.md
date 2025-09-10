@@ -37,6 +37,7 @@
   - [总结](#总结)
 - [Kafka Rebalance 会有什么样的问题？如何降低Rebalance的负面影响？](#kafka-rebalance-会有什么样的问题如何降低rebalance的负面影响)
 - [Kafka 有哪些常见的参数？](#kafka-有哪些常见的参数)
+- [Rebalance](#rebalance)
 
 # Kafka 分区的目的？
 分区对于 Kafka 集群的好处是: 实现负载均衡。分区对于消费者来说，可以提高并发度，提高效率。
@@ -292,4 +293,18 @@ Rebalance 会有什么样的问题？
 - `request.timeout.ms`: 客户端将等待请求的响应的最大时间,如果在这个时间内没有收到响应，客户端将重发请求;超过重试次数将抛异常，默认30秒。
 - `auto.create.topics.enable`: 自动创建主题。true则生产者或者消费者写或读不存在的主题时自动创建这个主题，默认true，false则不会。
 
+# Rebalance
+Rebalance的弊端
+- 影响Consumer端TPS
+- 很慢
+- 效率不高
 
+二类非必要Rebalance
+- 因为Consumer没能及时发送心跳请求，导致被"踢出"Group而引发Rebalance
+- Consumer消费时间过长导致Rebalance
+
+用于减少Rebalance的4个参数
+- session.timeout.ms 参数
+- heartbeat.interval.ms 参数
+- max.poll.interval.ms 参数
+- GC 参数
