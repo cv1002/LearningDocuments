@@ -18,6 +18,8 @@ Apache Flink 是开源的分布式引擎，用于对无界限（流）和有界�
 
 Apache Flink 的功能包括具有严格一次一致性保证的高级状态管理，以及具有复杂乱序处理和延迟数据处理的事件时间处理语义。Apache Flink 专为流式传输优先而开发，为流处理和批处理提供了统一的编程接口。
 
+Apache Flink 是一个分布式系统，它需要计算资源来执行应用程序。Flink 集成了所有常见的集群资源管理器，例如 Hadoop YARN、 Apache Mesos 和 Kubernetes，但同时也可以作为独立集群运行。
+
 ## 为什么使用 Apache Fink？
 由于 Apache Flink 具有广泛的功能，因此其可用于构建许多不同类型的流式处理和批处理应用程序。
 Apache Flink 提供支持的一些常见应用程序类型包括：
