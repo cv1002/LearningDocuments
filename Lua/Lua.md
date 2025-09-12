@@ -49,3 +49,27 @@ end
 setmetatable(table, metatable) -- 设置元表
 getmetatable(table) -- 获取元表
 ```
+
+## Lua 错误处理
+```lua
+if pcall(func, ...) then
+    -- 处理成功
+else
+    -- 处理错误
+end
+
+-- 函数
+function func ()
+   n = n / nil
+end
+
+-- 错误处理
+function errorhandler(err)
+   print("ERROR occured: ", err)
+   print("Here is the traceback: ")
+   print(debug.traceback())
+end
+
+status = xpcall(func, errorHandler)
+```
+
