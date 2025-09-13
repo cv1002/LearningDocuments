@@ -142,11 +142,11 @@ if (isDuplicate) {
 ```python
 # 使用Pytest模拟重复消息
 def test_idempotence():
-send_message(order_id)
-result1 = consume_message()
-send_message(order_id) # 故意重复发送
-result2 = consume_message()
-assert result1 == result2
+    send_message(order_id)
+    result1 = consume_message()
+    send_message(order_id) # 故意重复发送
+    result2 = consume_message()
+    assert result1 == result2
 ```
 
 ## 最佳实践总结
