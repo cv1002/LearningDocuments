@@ -33,7 +33,7 @@ GMP 调度器采用抢占式的协作调度，具体调度流程如下：
 - 当程序结束时，所有未完成的 goroutine 都会被杀死，而 P 和 M 也会被回收。
 
 ## P和M的个数
-- P: 由启动时环境变量 $GOMAXPROCS 或者是由 runtime的方法GOMAXPROCS()决定。这意味着在程序执行的任意时刻都只有$GOMAXPROCS个goroutine在同时运行。
+- P: 由启动时环境变量 `$GOMAXPROCS` 或者是由 runtime的方法 `GOMAXPROCS()`决定。这意味着在程序执行的任意时刻都只有 `$GOMAXPROCS` 个goroutine在同时运行。
 - M:
   - Go 语言本身的限制：Go 程序启动时，会设置 M 的最大数量，默认 10000，但是内核很难支持这么多的线程数，所以这个限制可以忽略。
   - runtime/debug 中的 SetMaxThreads 函数，设置 M 的最大数量。
