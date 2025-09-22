@@ -23,7 +23,7 @@ Reference: [深入理解 JVM 的垃圾收集器：CMS、G1、ZGC](https://javabe
 ## 分代收集器
 
 ### CMS
-以获取最短回收停顿时间为目标，采用“标记-清除”算法，分 4 大步进行垃圾收集，其中初始标记和重新标记会 STW，JDK 1.5 时引入，JDK9 被标记弃用，JDK14 被移除，详情可见  JEP 363。
+以获取最短回收停顿时间为目标，采用"标记-清除"算法，分 4 大步进行垃圾收集，其中初始标记和重新标记会 STW，JDK 1.5 时引入，JDK9 被标记弃用，JDK14 被移除，详情可见  JEP 363。
 
 CMS（Concurrent Mark Sweep）垃圾收集器是第一个关注 GC 停顿时间（STW 的时间）的垃圾收集器。之前的垃圾收集器，要么是串行的垃圾回收方式，要么只关注系统吞吐量。
 
@@ -87,7 +87,7 @@ G1 中存在三种 GC 模式，分别是 Young GC、Mixed GC 和 Full GC。
 
 Mixed GC 是指回收年轻代的 Region 以及一部分老年代中的 Region。Mixed GC 和 Young GC 一样，采用的也是复制算法。
 
-在 Mixed GC 过程中，如果发现老年代空间还是不足，此时如果 G1HeapWastePercent 设定过低，可能引发 Full GC。-XX:G1HeapWastePercent 默认是 5，意味着只有 5% 的堆是“浪费”的。如果浪费的堆的百分比大于 G1HeapWastePercent，则运行 Full GC。
+在 Mixed GC 过程中，如果发现老年代空间还是不足，此时如果 G1HeapWastePercent 设定过低，可能引发 Full GC。-XX:G1HeapWastePercent 默认是 5，意味着只有 5% 的堆是"浪费"的。如果浪费的堆的百分比大于 G1HeapWastePercent，则运行 Full GC。
 
 在以 Region 为最小管理单元以及所采用的 GC 模式的基础上，G1 建立了停顿预测模型，即 Pause Prediction Model 。这也是 G1 非常被人所称道的特性。
 
@@ -144,7 +144,7 @@ ZGC仅支持64位系统，它把64位虚拟地址空间划分为多个子空间�
 
 ![ZGC-Virtual-Address](assets/zgc-virtual-assets.png)
 
-不过，三个空间在同一时间只有一个空间有效。ZGC 之所以设置这三个虚拟地址，是因为 ZGC 采用的是“空间换时间”的思想，去降低 GC 的停顿时间。
+不过，三个空间在同一时间只有一个空间有效。ZGC 之所以设置这三个虚拟地址，是因为 ZGC 采用的是"空间换时间"的思想，去降低 GC 的停顿时间。
 
 与上述地址空间划分相对应，ZGC实际仅使用64位地址空间的第0-41位，而第42-45位存储元数据，第47-63位固定为0。
 
