@@ -11,6 +11,12 @@
   - [被动触发](#被动触发)
 - [为什么不要大量使用goroutine](#为什么不要大量使用goroutine)
 - [channel有缓冲和无缓冲在使用上有什么区别？](#channel有缓冲和无缓冲在使用上有什么区别)
+- [对未初始化的的chan进行读写，会怎么样？为什么？](#对未初始化的的chan进行读写会怎么样为什么)
+  - [写未初始化的 chan](#写未初始化的-chan)
+  - [读未初始化的 chan](#读未初始化的-chan)
+  - [为什么对未初始化的chan就会阻塞呢？](#为什么对未初始化的chan就会阻塞呢)
+    - [对于写的情况](#对于写的情况)
+    - [对于读的情况](#对于读的情况)
 
 # 讲一讲 GMP 模型
 三个字母的含义
@@ -75,4 +81,87 @@
 - 无缓冲：发送和接收需要同步。
 - 有缓冲：不要求发送和接收同步，缓冲满时发送阻塞。
 - 因此 channel 无缓冲时，发送阻塞直到数据被接收，接收阻塞直到读到数据；channel有缓冲时，当缓冲满时发送阻塞，当缓冲空时接收阻塞。
+
+# 对未初始化的的chan进行读写，会怎么样？为什么？
+
+读写未初始化的chan都会阻塞。
+
+## 写未初始化的 chan
+
+```go
+package main
+// 写未初始化的chan
+func main() {
+	var c chan int
+	c <- 1
+}
+```
+
+```
+// 输出结果
+fatal error: all goroutines are asleep - deadlock!
+
+goroutine 1 [chan send (nil chan)]:
+main.main()
+        /Users/admin18/go/src/repos/main.go:6 +0x36
+```
+
+## 读未初始化的 chan
+```go
+package main
+import "fmt"
+// 读未初始化的chan
+func main() {
+	var c chan int
+	num, ok := <-c
+	fmt.Printf("读chan的协程结束, num=%v, ok=%v\n", num, ok)
+}
+```
+
+```
+// 输出结果
+fatal error: all goroutines are asleep - deadlock!
+
+goroutine 1 [chan receive (nil chan)]:
+main.main()
+        /Users/admin18/go/src/repos/main.go:6 +0x46
+```
+
+## 为什么对未初始化的chan就会阻塞呢？
+### 对于写的情况
+```go
+//在 src/runtime/chan.go中
+func chansend(c *hchan, ep unsafe.Pointer, block bool, callerpc uintptr) bool {
+	if c == nil {
+      // 不能阻塞，直接返回 false，表示未发送成功
+      if !block {
+        return false
+      }
+      gopark(nil, nil, waitReasonChanSendNilChan, traceEvGoStop, 2)
+      throw("unreachable")
+	}
+  // 省略其他逻辑
+}
+```
+
+- 未初始化的chan此时是等于nil，当它不能阻塞的情况下，直接返回 false，表示写 chan 失败
+- 当chan能阻塞的情况下，则直接阻塞 gopark(nil, nil, waitReasonChanSendNilChan, traceEvGoStop, 2) , 然后调用throw(s string)抛出错误,其中waitReasonChanSendNilChan就是刚刚提到的报错"chan send (nil chan)"
+### 对于读的情况
+```go
+//在 src/runtime/chan.go中
+func chanrecv(c *hchan, ep unsafe.Pointer, block bool) (selected, received bool) {
+    //省略逻辑...
+    if c == nil {
+        if !block {
+          return
+        }
+        gopark(nil, nil, waitReasonChanReceiveNilChan, traceEvGoStop, 2)
+        throw("unreachable")
+    }
+    //省略逻辑...
+}
+```
+
+- 未初始化的chan此时是等于nil，当它不能阻塞的情况下，直接返回 false，表示读 chan 失败
+- 当chan能阻塞的情况下，则直接阻塞 gopark(nil, nil, waitReasonChanReceiveNilChan, traceEvGoStop, 2) , 然后调用throw(s string)抛出错误,其中waitReasonChanReceiveNilChan就是刚刚提到的报错"chan receive (nil chan)"
 
